@@ -2,8 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
-
+#include <time.h>
  
 float rand_float() {
     return (float) rand() / (float) RAND_MAX;
@@ -13,9 +12,26 @@ float sigmoidf(float x) {
     return 1.f / (1.f + expf(-x));
 }
 
+Matrix row_as_matrix(Row row) {
+    return (Matrix) {
+        .rows = 1,
+        .columns = row.size,
+        .data = row.data
+    };
+}
+
+Row row_slice(Row row, size_t start, size_t size) {
+    TERAS_ASSERT(start < row.size);
+    TERAS_ASSERT(start + size <= row.size);
+    return (Row) {
+        .size = size,
+        .data = &ROW_AT(row, start)
+    };
+}
+
 Matrix matrix_create(size_t rows, size_t columns) {
-    assert(rows >= 1);
-    assert(columns >= 1);
+    TERAS_ASSERT(rows >= 1);
+    TERAS_ASSERT(columns >= 1);
     
     Matrix m;
     m.rows = rows;
@@ -40,7 +56,18 @@ void matrix_print(Matrix m, char *name) {
 
 }
 
-void matrix_fill_rand(Matrix m) { 
+void matrix_copy(Matrix dest, Matrix a) {
+    TERAS_ASSERT(dest.rows == a.rows);
+    TERAS_ASSERT(dest.columns == a.columns);
+
+    for (size_t row = 0; row < dest.rows; row++) {
+        for (size_t column = 0; column < dest.columns; column++) {
+            MATRIX_AT(dest, row, column) = MATRIX_AT(a, row, column);
+        }
+    }
+}
+
+void matrix_rand(Matrix m) { 
     for (size_t row = 0; row < m.rows; row++) {
         for (size_t column = 0; column < m.columns; column++) {
             MATRIX_AT(m, row, column) = rand_float();
@@ -49,8 +76,8 @@ void matrix_fill_rand(Matrix m) {
 }
 
 void matrix_dot(Matrix dest, Matrix a, Matrix b) {
-    assert(dest.rows == a.rows && dest.columns == b.columns);
-    assert(a.columns == b.rows);
+    TERAS_ASSERT(dest.rows == a.rows && dest.columns == b.columns);
+    TERAS_ASSERT(a.columns == b.rows);
     size_t n = a.columns;
 
     for (size_t row = 0; row < dest.rows; row++) {
@@ -63,13 +90,12 @@ void matrix_dot(Matrix dest, Matrix a, Matrix b) {
     }
 }
 
-void matrix_sum(Matrix dest, Matrix a, Matrix b) {
-    assert(a.rows == b.rows && a.columns == b.columns);
-    assert(dest.rows == a.rows && dest.columns == a.columns);
+void matrix_sum(Matrix dest, Matrix a) {
+    TERAS_ASSERT(dest.rows == a.rows && dest.columns == a.columns);
 
     for (size_t row = 0; row < dest.rows; row++) {
         for (size_t column = 0; column < dest.columns; column++) {
-            MATRIX_AT(dest, row, column) = MATRIX_AT(a, row, column) + MATRIX_AT(b, row, column);
+            MATRIX_AT(dest, row, column) += MATRIX_AT(a, row, column);
         }
     }
 }
@@ -82,91 +108,104 @@ void matrix_sigmoid(Matrix m) {
     }
 }
 
-float train_or[][3] = {
-    {0, 0, 0},
-    {0, 1, 0},
-    {1, 0, 0},
-    {1, 1, 1}
-};
-
-#define SIZE_OR 4
-
-
-typedef struct {
-    Matrix x; // inputs
-    Matrix a0, w, b; // intermediete layer
-    Matrix y; // output
-} Or;
-
-void forward_or(Or or, float x1, float x2) {
-    MATRIX_AT(or.x, 0, 0) = x1;
-    MATRIX_AT(or.x, 0, 1) = x2;
-    matrix_dot(or.a0, or.x, or.w);
-    matrix_sum(or.y, or.a0, or.b);
-    matrix_sigmoid(or.y);
+Row mat_row(Matrix m, size_t row) {
+    TERAS_ASSERT(row < m.rows);
+    return (Row) {
+        .size = m.columns,
+        .data = &MATRIX_AT(m, row, 0)
+    };
 }
 
-float cost_or(Or or) {
-    float sum = 0.f;
-    for (size_t i = 0; i < SIZE_OR; i++) {
-        float x1 = train_or[i][0];
-        float x2 = train_or[i][1];
-        forward_or(or, x1, x2);
-        float diff = train_or[i][2] - *or.y.data;
-        sum += diff * diff;
+NN nn_create(size_t *layers, size_t num_layers) {
+    NN n;
+
+    TERAS_ASSERT(num_layers > 0);
+
+    n.count = num_layers - 1;
+    n.ws = malloc(sizeof(*n.ws)*n.count);
+    TERAS_ASSERT(n.ws != NULL);
+    n.bs = malloc(sizeof(*n.bs)*n.count);
+    TERAS_ASSERT(n.bs != NULL);
+    n.as = malloc(sizeof(*n.as)*(n.count + 1));
+    TERAS_ASSERT(n.as != NULL);
+
+    n.as[0] = row_create(layers[0]);
+
+    for (int i = 0; i < n.count; i++) {
+        n.ws[i] = matrix_create(layers[i], layers[i+1]);
+        n.bs[i] = row_create(layers[i+1]);
+        n.as[i+1] = row_create(layers[i+1]);
     }
-    return sum / SIZE_OR;
+
+    return n;
 }
 
-int main(void) {
-    Or or;
+void nn_print(NN n) {
+    // todo: printing will only work for i < 9
+    for (size_t i = 0; i < n.count; i++) {
+        char w[] = {'w', i+'0', '\0'};
+        char b[] = {'b', i+'0', '\0'};
+        char a[] = {'a', i+'1', '\0'};
+        matrix_print(n.ws[i], w);
+        matrix_print(row_as_matrix(n.bs[i]), b);
+    }
+}
 
-    or.x = matrix_create(1, 2);
+void nn_rand(NN n) {
+    for (size_t i = 0; i < n.count; i++) {
+        matrix_rand(n.ws[i]);
+        row_rand(n.bs[i]);
+    }
+}
 
-    or.a0 = matrix_create(1, 1);
-    or.w = matrix_create(2, 1);
-    or.b = matrix_create(1, 1);
+void nn_forward(NN n) {
+    for (int i = 0; i < n.count; i++) {
+        matrix_dot(row_as_matrix(n.as[i+1]), row_as_matrix(n.as[i]), n.ws[i]);
+        matrix_sum(row_as_matrix(n.as[i+1]), row_as_matrix(n.bs[i]));
+        matrix_sigmoid(row_as_matrix(n.as[i+1]));
+    }
+}
 
-    or.y = matrix_create(1, 1);
+float nn_cost(NN n, Matrix train) {
+    TERAS_ASSERT(NN_INPUT(n).size + NN_OUTPUT(n).size == train.columns);
+    float sum = 0;
 
-    matrix_fill_rand(or.w);
-    matrix_fill_rand(or.b);
+    for (size_t row = 0; row < train.rows; row++) {
+        Row t = mat_row(train, row);
+        Row x = row_slice(t, 0, NN_INPUT(n).size); 
+        Row y = row_slice(t, NN_INPUT(n).size, NN_OUTPUT(n).size); 
 
-    float eps = 1e-1;
-    float rate = 1e-1;
-
-    for (size_t i = 0; i < 100*1000; i++) {
-        float c = cost_or(or);
-        float saved = 0.f;
-
-        saved = MATRIX_AT(or.w, 0, 0);
-        MATRIX_AT(or.w, 0, 0) += eps;
-        float dw1 = (cost_or(or) - c) / eps;
-        MATRIX_AT(or.w, 0, 0) = saved;
+        row_copy(NN_INPUT(n), x);
+        nn_forward(n);
         
-        saved = MATRIX_AT(or.w, 1, 0);
-        MATRIX_AT(or.w, 1, 0) += eps;
-        float dw2 = (cost_or(or) - c) / eps;
-        MATRIX_AT(or.w, 1, 0) = saved;
+        size_t q = y.size;
+        for (size_t i = 0; i < q; i++) {
+            float d = ROW_AT(NN_OUTPUT(n), i) - ROW_AT(y, i); 
+            sum += d*d;
+        }
 
-        saved = MATRIX_AT(or.b, 0, 0);
-        MATRIX_AT(or.b, 0, 0) += eps;
-        float db = (cost_or(or) - c) / eps;
-        MATRIX_AT(or.b, 0, 0) = saved;
 
-        MATRIX_AT(or.w, 0, 0) -= dw1;
-        MATRIX_AT(or.w, 1, 0) -= dw2;
-        MATRIX_AT(or.b, 0, 0) -= db;
+    }
+    return sum/train.rows;
+}
 
-        printf("Cost - %f\n",  c);
+int main() {
+    srand(time(NULL));
+
+    size_t layers[] = {2, 1, 1};
+    NN n = nn_create(layers, ARR_LEN(layers));
+    nn_rand(n);
+    nn_print(n);
+
+    Matrix train = matrix_create(4, 3);
+    for (size_t i = 0; i < 2; i++) {
+        for (size_t j = 0; j < 2; j++) {
+            size_t row = i*2 + j;
+            MATRIX_AT(train, row, 0) = i;
+            MATRIX_AT(train, row, 1) = j;
+            MATRIX_AT(train, row, 2) = i^j;
+        }
     }
 
-    for (size_t  i = 0; i < SIZE_OR; i++) {
-        float x1 = train_or[i][0];
-        float x2 = train_or[i][1];
-        forward_or(or, x1, x2);
-        printf("%f | %f -> %f\n", x1, x2, *or.y.data);
-    }
-
-    return 0;
+    printf("Cost - %f\n", nn_cost(n, train));
 }
