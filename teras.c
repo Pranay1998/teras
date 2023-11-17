@@ -40,10 +40,6 @@ Matrix matrix_create(size_t rows, size_t columns) {
     return m;
 }
 
-void matrix_free(Matrix m) {
-    free(m.data);
-}
-
 void matrix_print(Matrix m, char *name) {
     printf("%s =\n", name);
     for (size_t row = 0; row < m.rows; row++) {
@@ -189,13 +185,62 @@ float nn_cost(NN n, Matrix train) {
     return sum/train.rows;
 }
 
+void nn_finite_diff(NN n, NN g, Matrix train, float eps) {
+    assert(n.count == g.count);
+    float cost = nn_cost(n, train);
+    float saved;
+
+    for (size_t i = 0; i < n.count; i++) {
+        assert(n.ws[i].rows == g.ws[i].rows);
+        assert(n.ws[i].columns == g.ws[i].columns);
+        assert(n.bs[i].size == g.bs[i].size);
+
+        for (size_t row = 0; row < n.ws[i].rows; row++) {
+            for (size_t column = 0; column < n.ws[i].columns; column++) {
+                saved = MATRIX_AT(n.ws[i], row, column);
+                MATRIX_AT(n.ws[i], row, column) += eps;
+                MATRIX_AT(g.ws[i], row, column) = (nn_cost(n, train) - cost)/eps;
+                MATRIX_AT(n.ws[i], row, column) = saved;
+            }
+        }
+
+        for (size_t size = 0; size < n.bs[i].size; size++) {
+            saved = ROW_AT(n.bs[i], size);
+            ROW_AT(n.bs[i], size) += eps;
+            ROW_AT(g.bs[i], size) = (nn_cost(n, train) - cost)/eps;
+            ROW_AT(n.bs[i], size) = saved;
+        }
+            
+    }
+}
+
+void nn_learn(NN n, NN g, float rate) { 
+    assert(n.count == g.count);
+
+    for (size_t i = 0; i < n.count; i++) {
+        assert(n.ws[i].rows == g.ws[i].rows);
+        assert(n.ws[i].columns == g.ws[i].columns);
+        assert(n.bs[i].size == g.bs[i].size);
+
+        for (size_t row = 0; row < n.ws[i].rows; row++) {
+            for (size_t column = 0; column < n.ws[i].columns; column++) {
+                MATRIX_AT(n.ws[i], row, column) -= rate*MATRIX_AT(g.ws[i], row, column);
+            }
+        }
+
+        for (size_t size = 0; size < n.bs[i].size; size++) {
+            ROW_AT(n.bs[i], size) -= rate*ROW_AT(g.bs[i], size);
+        }
+    }
+}
+
 int main() {
     srand(time(NULL));
 
-    size_t layers[] = {2, 1, 1};
+    size_t layers[] = {2, 2, 1};
     NN n = nn_create(layers, ARR_LEN(layers));
+    NN g = nn_create(layers, ARR_LEN(layers));
     nn_rand(n);
-    nn_print(n);
 
     Matrix train = matrix_create(4, 3);
     for (size_t i = 0; i < 2; i++) {
@@ -207,5 +252,13 @@ int main() {
         }
     }
 
-    printf("Cost - %f\n", nn_cost(n, train));
+    float eps = 1e-1;
+    float rate = 1e-1;
+    
+    for (size_t i = 0; i < 100*1000; i++) {
+        nn_finite_diff(n, g, train, eps);
+        nn_learn(n, g, rate);
+        printf("Cost - %f\n", nn_cost(n, train));
+    }
+
 }

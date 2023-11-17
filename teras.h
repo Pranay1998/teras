@@ -40,7 +40,7 @@ typedef struct {
 } NN;
 
 #define NN_INPUT(n) (TERAS_ASSERT((n).count > 0), (n).as[0])
-#define NN_OUTPUT(n) (TERAS_ASSERT((n).count > 0), (n).as[(n).count-1])
+#define NN_OUTPUT(n) (TERAS_ASSERT((n).count > 0), (n).as[(n).count])
 
 Matrix row_as_matrix(Row row);
 Row row_slice(Row row, size_t start, size_t end);
@@ -56,10 +56,11 @@ void matrix_sigmoid(Matrix m);
 Row mat_row(Matrix m, size_t row);
 
 NN nn_create(size_t *layers, size_t num_layers);
-void nn_free(NN n);
 void nn_print(NN n);
 void nn_rand(NN n);
 void nn_forward(NN n);
 float nn_cost(NN n, Matrix train);
+void nn_finite_diff(NN n, NN g, Matrix train, float eps);
+void nn_learn(NN n, NN g, float rate);
 
 #endif
