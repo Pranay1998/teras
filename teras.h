@@ -18,7 +18,7 @@ typedef struct {
     float *data;
 } Row;
 
-#define row_create(size) mat_row(matrix_create(1, size), 0)
+#define row_alloc(size) mat_row(matrix_alloc(1, size), 0)
 #define ROW_AT(row, index) (row).data[index]
 #define row_rand(r) matrix_rand(row_as_matrix(r))
 #define row_copy(dest, src) matrix_copy(row_as_matrix(dest), row_as_matrix(src))
@@ -34,6 +34,7 @@ typedef struct {
 
 typedef struct {
     size_t count;
+    Row *zs;
     Row *as;
     Matrix *ws;
     Row *bs;
@@ -45,17 +46,17 @@ typedef struct {
 Matrix row_as_matrix(Row row);
 Row row_slice(Row row, size_t start, size_t end);
 
-Matrix matrix_create(size_t rows, size_t columns);
+Matrix matrix_alloc(size_t rows, size_t columns);
 void matrix_free(Matrix m);
 void matrix_print(Matrix m, char *name);
 void matrix_copy(Matrix dest, Matrix a);
 void matrix_rand(Matrix dest);
 void matrix_dot(Matrix dest, Matrix a, Matrix b);
-void matrix_sum(Matrix dest, Matrix a);
-void matrix_sigmoid(Matrix m);
+void matrix_sum(Matrix dest, Matrix a, Matrix b);
+void matrix_sigmoid(Matrix dest, Matrix m);
 Row mat_row(Matrix m, size_t row);
 
-NN nn_create(size_t *layers, size_t num_layers);
+NN nn_alloc(size_t *layers, size_t num_layers);
 void nn_print(NN n);
 void nn_rand(NN n);
 void nn_forward(NN n);

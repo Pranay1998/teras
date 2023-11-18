@@ -29,7 +29,7 @@ Row row_slice(Row row, size_t start, size_t size) {
     };
 }
 
-Matrix matrix_create(size_t rows, size_t columns) {
+Matrix matrix_alloc(size_t rows, size_t columns) {
     TERAS_ASSERT(rows >= 1);
     TERAS_ASSERT(columns >= 1);
     
@@ -86,20 +86,20 @@ void matrix_dot(Matrix dest, Matrix a, Matrix b) {
     }
 }
 
-void matrix_sum(Matrix dest, Matrix a) {
+void matrix_sum(Matrix dest, Matrix a, Matrix b) {
     TERAS_ASSERT(dest.rows == a.rows && dest.columns == a.columns);
 
     for (size_t row = 0; row < dest.rows; row++) {
         for (size_t column = 0; column < dest.columns; column++) {
-            MATRIX_AT(dest, row, column) += MATRIX_AT(a, row, column);
+            MATRIX_AT(dest, row, column) = MATRIX_AT(a, row, column) + MATRIX_AT(b, row, column);
         }
     }
 }
 
-void matrix_sigmoid(Matrix m) {
+void matrix_sigmoid(Matrix dest, Matrix m) {
     for (size_t row = 0; row < m.rows; row++) {
         for (size_t column = 0; column < m.columns; column++) {
-            MATRIX_AT(m, row, column)= sigmoidf(MATRIX_AT(m, row, column));
+            MATRIX_AT(dest, row, column)= sigmoidf(MATRIX_AT(m, row, column));
         }
     }
 }
@@ -112,7 +112,7 @@ Row mat_row(Matrix m, size_t row) {
     };
 }
 
-NN nn_create(size_t *layers, size_t num_layers) {
+NN nn_alloc(size_t *layers, size_t num_layers) {
     NN n;
 
     TERAS_ASSERT(num_layers > 0);
@@ -122,15 +122,18 @@ NN nn_create(size_t *layers, size_t num_layers) {
     TERAS_ASSERT(n.ws != NULL);
     n.bs = malloc(sizeof(*n.bs)*n.count);
     TERAS_ASSERT(n.bs != NULL);
-    n.as = malloc(sizeof(*n.as)*(n.count + 1));
+    n.zs = malloc(sizeof(*n.zs)*n.count);
+    TERAS_ASSERT(n.as != NULL);
+    n.as = malloc(sizeof(*n.as)*(n.count+1));
     TERAS_ASSERT(n.as != NULL);
 
-    n.as[0] = row_create(layers[0]);
+    n.as[0] = row_alloc(layers[0]);
 
     for (int i = 0; i < n.count; i++) {
-        n.ws[i] = matrix_create(layers[i], layers[i+1]);
-        n.bs[i] = row_create(layers[i+1]);
-        n.as[i+1] = row_create(layers[i+1]);
+        n.ws[i] = matrix_alloc(layers[i], layers[i+1]);
+        n.bs[i] = row_alloc(layers[i+1]);
+        n.zs[i] = row_alloc(layers[i+1]);
+        n.as[i+1] = row_alloc(layers[i+1]);
     }
 
     return n;
@@ -139,11 +142,14 @@ NN nn_create(size_t *layers, size_t num_layers) {
 void nn_print(NN n) {
     // todo: printing will only work for i < 9
     for (size_t i = 0; i < n.count; i++) {
-        char w[] = {'w', i+'0', '\0'};
-        char b[] = {'b', i+'0', '\0'};
-        char a[] = {'a', i+'1', '\0'};
-        matrix_print(n.ws[i], w);
-        matrix_print(row_as_matrix(n.bs[i]), b);
+        char name_w[10];
+        char name_b[10];
+
+        sprintf(name_w, "w%zu", i);
+        sprintf(name_b, "b%zu", i);
+
+        matrix_print(n.ws[i], name_w);
+        matrix_print(row_as_matrix(n.bs[i]), name_b);
     }
 }
 
@@ -156,9 +162,9 @@ void nn_rand(NN n) {
 
 void nn_forward(NN n) {
     for (int i = 0; i < n.count; i++) {
-        matrix_dot(row_as_matrix(n.as[i+1]), row_as_matrix(n.as[i]), n.ws[i]);
-        matrix_sum(row_as_matrix(n.as[i+1]), row_as_matrix(n.bs[i]));
-        matrix_sigmoid(row_as_matrix(n.as[i+1]));
+        matrix_dot(row_as_matrix(n.zs[i]), row_as_matrix(n.as[i]), n.ws[i]);
+        matrix_sum(row_as_matrix(n.zs[i]), row_as_matrix(n.zs[i]), row_as_matrix(n.bs[i]));
+        matrix_sigmoid(row_as_matrix(n.as[i+1]), row_as_matrix(n.zs[i]));
     }
 }
 
@@ -238,11 +244,11 @@ int main() {
     srand(time(NULL));
 
     size_t layers[] = {2, 2, 1};
-    NN n = nn_create(layers, ARR_LEN(layers));
-    NN g = nn_create(layers, ARR_LEN(layers));
+    NN n = nn_alloc(layers, ARR_LEN(layers));
+    NN g = nn_alloc(layers, ARR_LEN(layers));
     nn_rand(n);
 
-    Matrix train = matrix_create(4, 3);
+    Matrix train = matrix_alloc(4, 3);
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < 2; j++) {
             size_t row = i*2 + j;
@@ -260,5 +266,4 @@ int main() {
         nn_learn(n, g, rate);
         printf("Cost - %f\n", nn_cost(n, train));
     }
-
 }
