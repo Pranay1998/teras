@@ -1,3 +1,3 @@
 #!/bin/bash
 
-clang teras.c -o teras -lm
+clang examples/gates.c teras.c -o gates -lm
