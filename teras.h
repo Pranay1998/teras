@@ -53,6 +53,7 @@ Matrix row_as_matrix(Row row);
 Row row_slice(Row row, size_t start, size_t end);
 
 Matrix matrix_alloc(size_t rows, size_t columns);
+void matrix_free(Matrix m);
 void matrix_print(Matrix m, char *name);
 void matrix_copy(Matrix dest, Matrix a);
 void matrix_rand(Matrix dest);

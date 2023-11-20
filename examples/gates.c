@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include "../teras.h"
+#include "time.h"
 
 #define OPERATOR ^
 
 int main() {
+    srand(time(0));
     size_t layers[] = {2, 2, 1};
     NN n = nn_alloc(layers, ARR_LEN(layers));
     nn_rand(n);

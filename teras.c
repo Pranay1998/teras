@@ -51,6 +51,10 @@ Matrix matrix_alloc(size_t rows, size_t columns) {
     return m;
 }
 
+void matrix_free(Matrix m) {
+    free(m.data);
+}
+
 void matrix_print(Matrix m, char *name) {
     printf("%s =\n", name);
     for (size_t row = 0; row < m.rows; row++) {
@@ -176,7 +180,7 @@ void matrix_sum(Matrix dest, Matrix a, Matrix b) {
 void matrix_sigmoid(Matrix dest, Matrix m) {
     for (size_t row = 0; row < m.rows; row++) {
         for (size_t column = 0; column < m.columns; column++) {
-            MATRIX_AT(dest, row, column)= sigmoidf(MATRIX_AT(m, row, column));
+            MATRIX_AT(dest, row, column) = sigmoidf(MATRIX_AT(m, row, column));
         }
     }
 }
@@ -299,19 +303,19 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
     nn_forward(n);
 
     Row delta = n.deltas[num_layers-1];
-    nn_cost_derivative(g.bs[num_layers-1], y, NN_OUTPUT(n)); // temporary store
+    nn_cost_derivative(g.zs[num_layers-1], y, NN_OUTPUT(n)); // temporary store
     matrix_sigmoid_prime(row_as_matrix(delta), row_as_matrix(n.zs[num_layers-1]));
-    matrix_hadamard_product(row_as_matrix(delta), row_as_matrix(delta), row_as_matrix(g.bs[num_layers-1]));
+    matrix_hadamard_product(row_as_matrix(delta), row_as_matrix(delta), row_as_matrix(g.zs[num_layers-1]));
 
     row_copy(g.bs[num_layers-1], delta);
     matrix_dot_a_transpose(g.ws[num_layers-1], row_as_matrix(n.as[num_layers-1]), row_as_matrix(delta), false);
 
     for (size_t l = num_layers-2; l != (size_t) -1; l--) {
         Row delta_l = n.deltas[l];
-        matrix_sigmoid_prime(row_as_matrix(g.bs[l]), row_as_matrix(n.zs[l])); // temporary store
+        matrix_sigmoid_prime(row_as_matrix(g.zs[l]), row_as_matrix(n.zs[l])); // temporary store
 
         matrix_dot_b_transpose(row_as_matrix(delta_l), row_as_matrix(delta), n.ws[l+1], false);
-        matrix_hadamard_product(row_as_matrix(delta_l), row_as_matrix(delta_l), row_as_matrix(g.bs[l]));
+        matrix_hadamard_product(row_as_matrix(delta_l), row_as_matrix(delta_l), row_as_matrix(g.zs[l]));
         delta = delta_l; 
 
         row_copy(g.bs[l], delta);
