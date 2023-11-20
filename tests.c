@@ -208,12 +208,45 @@ void test_matrix_dot_transpose() {
     matrix_free(f);   
 }
 
-void test_hadamards_product() {
+void test_hadamard_product() {
+    const float array1[] = {
+        1, 2, 30,
+        2, 5, 1,
+        30, 1, 2,
+        1, 2, 2,
+    };
+
+    const float array2[] = {
+        1, 2, 3,
+        2, 3, 1,
+        3, 1, 2,
+        1, 2, 3,
+    };
+
+    const float array3[] = {
+        1, 4, 90,
+        4, 15, 1,
+        90, 1, 4,
+        1, 4, 6,
+    };
+
+    Matrix a = matrix_alloc(4, 3);
+    Matrix b = matrix_alloc(4, 3);
+    Matrix c = matrix_alloc(4, 3);
+
+    memcpy(a.data, array1, sizeof(array1));
+    memcpy(b.data, array2, sizeof(array2));
+    matrix_hadamard_product(c, a, b);
+    CHECK(memcmp(c.data, array3, sizeof(array3)));
+
+    matrix_free(a);
+    matrix_free(b);
+    matrix_free(c);
 }
 
 int main() {
     test_matrix_dot();
     test_matrix_dot_transpose();
-    test_hadamards_product();
+    test_hadamard_product();
     return 0;
 }

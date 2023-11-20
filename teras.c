@@ -12,7 +12,7 @@ size_t min(size_t a, size_t b) {
 }
 
 // Normal distribution with mean 0 and variance 1
-// Todo: Make cusstomizable
+// Todo: Make customizable
 float rand_float() {
     float u1 = rand() / (RAND_MAX + 1.0f);
     float u2 = rand() / (RAND_MAX + 1.0f);
