@@ -86,6 +86,14 @@ void matrix_rand(Matrix m) {
     }
 }
 
+void matrix_fill(Matrix m, float value) {
+        for (size_t row = 0; row < m.rows; row++) {
+        for (size_t column = 0; column < m.columns; column++) {
+            MATRIX_AT(m, row, column) = value;
+        }
+    }
+}
+
 void matrix_shuffle_rows(Matrix train) {
     float temp;
     
@@ -254,6 +262,13 @@ void nn_rand(NN n) {
     }
 }
 
+void nn_fill(NN n, float value) {
+        for (size_t i = 0; i < n.count; i++) {
+        matrix_fill(n.ws[i], value);
+        matrix_fill(row_as_matrix(n.bs[i]), value);
+    }
+}
+
 void nn_forward(NN n) {
     for (int i = 0; i < n.count; i++) {
         matrix_dot(row_as_matrix(n.zs[i]), row_as_matrix(n.as[i]), n.ws[i], false);
@@ -309,8 +324,8 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
     matrix_sigmoid_prime(row_as_matrix(delta), row_as_matrix(n.zs[num_layers-1]));
     matrix_hadamard_product(row_as_matrix(delta), row_as_matrix(delta), row_as_matrix(g.zs[num_layers-1]));
 
-    row_copy(g.bs[num_layers-1], delta);
-    matrix_dot_a_transpose(g.ws[num_layers-1], row_as_matrix(n.as[num_layers-1]), row_as_matrix(delta), false);
+    matrix_sum(row_as_matrix(g.bs[num_layers-1]), row_as_matrix(g.bs[num_layers-1]), row_as_matrix(delta));
+    matrix_dot_a_transpose(g.ws[num_layers-1], row_as_matrix(n.as[num_layers-1]), row_as_matrix(delta), true);
 
     for (size_t l = num_layers-2; l != (size_t) -1; l--) {
         Row delta_l = n.deltas[l];
@@ -320,8 +335,8 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
         matrix_hadamard_product(row_as_matrix(delta_l), row_as_matrix(delta_l), row_as_matrix(g.zs[l]));
         delta = delta_l; 
 
-        row_copy(g.bs[l], delta);
-        matrix_dot_a_transpose(g.ws[l], row_as_matrix(n.as[l]), row_as_matrix(delta), false);
+        matrix_sum(row_as_matrix(g.bs[l]), row_as_matrix(g.bs[l]), row_as_matrix(delta));
+        matrix_dot_a_transpose(g.ws[l], row_as_matrix(n.as[l]), row_as_matrix(delta), true);
     }
 }
 
@@ -354,6 +369,7 @@ void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float ra
 
             TERAS_ASSERT(batch_end - batch_start <= batch_size);
 
+            nn_fill(g, 0);
             size_t i;
             for (i = batch_start; i < batch_end && i < train.rows; i++) {
                 Row t = mat_row(train, i);

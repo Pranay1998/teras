@@ -22,7 +22,7 @@ int main() {
     }
 
     float rate = 10;
-    size_t batch_size = 1;
+    size_t batch_size = 2;
     size_t epochs = 1000;
 
     nn_sgd(n, g, train, epochs, batch_size, rate);
