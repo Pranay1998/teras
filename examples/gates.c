@@ -4,6 +4,10 @@
 
 #define OPERATOR ^
 
+void evaluate(NN n, Matrix test) {
+
+}
+
 int main() {
     srand(time(NULL));
     size_t layers[] = {2, 2, 1};
@@ -25,7 +29,6 @@ int main() {
     size_t batch_size = 2;
     size_t epochs = 1000;
 
-    nn_sgd(n, g, train, epochs, batch_size, rate);
-
+    nn_sgd(n, g, train, epochs, batch_size, rate, train, evaluate);
     printf("Final cost - %f\n", nn_cost(n, train));
 }

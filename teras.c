@@ -12,7 +12,12 @@ size_t min(size_t a, size_t b) {
 }
 
 float rand_float() {
-    return (float) rand() / (float) RAND_MAX;
+    float u1 = rand() / (RAND_MAX + 1.0f);
+    float u2 = rand() / (RAND_MAX + 1.0f);
+
+    float z0 = sqrtf(-2.0f * logf(u1)) * cosf(2.0f * M_PI * u2);
+
+    return z0;
 }
 
 float sigmoidf(float x) {
@@ -358,7 +363,7 @@ void nn_learn(NN n, NN g, size_t batch_size, float rate) {
     }
 }
 
-void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate) {
+void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate, Matrix test, void (*evaluation_function) (NN, Matrix)) {
     TERAS_ASSERT(batch_size <= train.rows);
     for (size_t epoch = 0; epoch < epochs; epoch++) {
         matrix_shuffle_rows(train);
@@ -381,5 +386,8 @@ void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float ra
 
             batch_start = batch_end;
         }
+
+        printf("Epoch - %zu Cost - %f -----------------\n", epoch, nn_cost(n, test));
+        evaluation_function(n, test);
     }
 }
