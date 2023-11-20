@@ -1,5 +1,5 @@
-#import "mnist_loader.h"
-#import "../teras.h"
+#include "mnist_loader.h"
+#include "../teras.h"
 
 #define OPERATOR ^
 

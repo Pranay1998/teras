@@ -9,10 +9,10 @@
 #define TERAS_ASSERT assert
 #endif // TERAS_ASSERT
 
-#ifndef TERAS_MALLOC
+#ifndef TERAS_ALLOC
 #include <stdlib.h>
-#define TERAS_MALLOC malloc
-#endif // TERAS_MALLOC
+#define TERAS_ALLOC malloc
+#endif // TERAS_ALLOC
 
 #define ARR_LEN(m) sizeof(m)/sizeof(m[0])
 
@@ -57,6 +57,7 @@ void matrix_free(Matrix m);
 void matrix_print(Matrix m, char *name);
 void matrix_copy(Matrix dest, Matrix a);
 void matrix_rand(Matrix dest);
+void matrix_fill(Matrix m, float value);
 void matrix_shuffle_rows(Matrix r);
 void matrix_dot(Matrix dest, Matrix a, Matrix b, bool plus_equal);
 void matrix_dot_a_transpose(Matrix dest, Matrix a, Matrix b, bool plus_equal);
@@ -70,6 +71,7 @@ Row mat_row(Matrix m, size_t row);
 NN nn_alloc(size_t *layers, size_t num_layers);
 void nn_print(NN n, char *name);
 void nn_rand(NN n);
+void nn_fill(NN m, float value);
 void nn_forward(NN n);
 float nn_cost(NN n, Matrix train);
 void nn_cost_derivative(Row dest, Row y, Row output_activations);

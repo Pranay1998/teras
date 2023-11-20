@@ -11,6 +11,8 @@ size_t min(size_t a, size_t b) {
     }
 }
 
+// Normal distribution with mean 0 and variance 1
+// Todo: Make cusstomizable
 float rand_float() {
     float u1 = rand() / (RAND_MAX + 1.0f);
     float u2 = rand() / (RAND_MAX + 1.0f);
@@ -26,6 +28,14 @@ float sigmoidf(float x) {
 
 float sigmoidf_prime(float x) {
     return sigmoidf(x) * (1 - sigmoidf(x));
+}
+
+float relu(float x) {
+    return x > 0 ? x : 0;
+}
+
+float relu_prime(float x) {
+    return x > 0 ? 1 : 0;
 }
 
 Matrix row_as_matrix(Row row) {
@@ -52,7 +62,7 @@ Matrix matrix_alloc(size_t rows, size_t columns) {
     Matrix m;
     m.rows = rows;
     m.columns = columns;
-    m.data = TERAS_MALLOC(sizeof(*m.data) * rows * columns);
+    m.data = TERAS_ALLOC(sizeof(*m.data) * rows * columns);
     return m;
 }
 
@@ -220,15 +230,15 @@ NN nn_alloc(size_t *layers, size_t num_layers) {
     TERAS_ASSERT(num_layers > 0);
 
     n.count = num_layers - 1;
-    n.ws = TERAS_MALLOC(sizeof(*n.ws)*n.count);
+    n.ws = TERAS_ALLOC(sizeof(*n.ws)*n.count);
     TERAS_ASSERT(n.ws != NULL);
-    n.bs = TERAS_MALLOC(sizeof(*n.bs)*n.count);
+    n.bs = TERAS_ALLOC(sizeof(*n.bs)*n.count);
     TERAS_ASSERT(n.bs != NULL);
-    n.zs = TERAS_MALLOC(sizeof(*n.zs)*n.count);
+    n.zs = TERAS_ALLOC(sizeof(*n.zs)*n.count);
     TERAS_ASSERT(n.zs != NULL);
-    n.deltas = TERAS_MALLOC(sizeof(*n.deltas)*n.count);
+    n.deltas = TERAS_ALLOC(sizeof(*n.deltas)*n.count);
     TERAS_ASSERT(n.deltas != NULL);
-    n.as = TERAS_MALLOC(sizeof(*n.as)*(n.count+1));
+    n.as = TERAS_ALLOC(sizeof(*n.as)*(n.count+1));
     TERAS_ASSERT(n.as != NULL);
 
     n.as[0] = row_alloc(layers[0]);
@@ -387,7 +397,7 @@ void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float ra
             batch_start = batch_end;
         }
 
-        printf("Epoch - %zu Cost - %f -----------------\n", epoch, nn_cost(n, test));
+        printf("----------------- Epoch - %zu Cost - %f -----------------\n", epoch, nn_cost(n, test));
         evaluation_function(n, test);
     }
 }
