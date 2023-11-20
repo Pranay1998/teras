@@ -209,7 +209,6 @@ void test_matrix_dot_transpose() {
 }
 
 void test_hadamards_product() {
-
 }
 
 int main() {

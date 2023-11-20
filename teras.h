@@ -74,7 +74,7 @@ void nn_forward(NN n);
 float nn_cost(NN n, Matrix train);
 void nn_cost_derivative(Row dest, Row y, Row output_activations);
 void nn_backprop(NN n, NN g, Row x, Row y);
-void nn_learn(NN n, NN *g, size_t batch_size, float rate);
-void nn_sgd(NN n, NN *g, Matrix train, size_t epochs, size_t batch_size, float rate);
+void nn_learn(NN n, NN g, size_t batch_size, float rate);
+void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate);
 
 #endif

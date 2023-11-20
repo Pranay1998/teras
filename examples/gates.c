@@ -5,9 +5,10 @@
 #define OPERATOR ^
 
 int main() {
-    srand(time(0));
+    srand(time(NULL));
     size_t layers[] = {2, 2, 1};
     NN n = nn_alloc(layers, ARR_LEN(layers));
+    NN g = nn_alloc(layers, ARR_LEN(layers));
     nn_rand(n);
 
     Matrix train = matrix_alloc(4, 3);
@@ -21,14 +22,8 @@ int main() {
     }
 
     float rate = 10;
-    size_t batch_size = train.rows;
+    size_t batch_size = 1;
     size_t epochs = 1000;
-
-    NN g[batch_size];
-
-    for (size_t i = 0; i < batch_size; i++) {
-        g[i] = nn_alloc(layers, ARR_LEN(layers));
-    }
 
     nn_sgd(n, g, train, epochs, batch_size, rate);
 

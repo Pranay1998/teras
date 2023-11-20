@@ -295,6 +295,8 @@ void nn_cost_derivative(Row dest, Row y, Row output_activations) {
 }
 
 void nn_backprop(NN n, NN g, Row x, Row y) {
+    // Todo: Accumulate gradients instead of overwriting
+    // Use batch_size = 1 until then
     TERAS_ASSERT(x.size == NN_INPUT(n).size);
     TERAS_ASSERT(y.size == NN_OUTPUT(n).size);
 
@@ -323,50 +325,45 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
     }
 }
 
-void nn_learn(NN n, NN *gs, size_t batch_size, float rate) { 
-    for (size_t batch = 0; batch < batch_size; batch++) {
-        NN g = gs[batch];
-        for (size_t i = 0; i < n.count; i++) {
-            assert(n.ws[i].rows == g.ws[i].rows);
-            assert(n.ws[i].columns == g.ws[i].columns);
-            assert(n.bs[i].size == g.bs[i].size);
+void nn_learn(NN n, NN g, size_t batch_size, float rate) { 
+    for (size_t i = 0; i < n.count; i++) {
+        assert(n.ws[i].rows == g.ws[i].rows);
+        assert(n.ws[i].columns == g.ws[i].columns);
+        assert(n.bs[i].size == g.bs[i].size);
 
-            for (size_t row = 0; row < n.ws[i].rows; row++) {
-                for (size_t column = 0; column < n.ws[i].columns; column++) {
-                    MATRIX_AT(n.ws[i], row, column) -= (rate*MATRIX_AT(g.ws[i], row, column))/batch_size;
-                }
+        for (size_t row = 0; row < n.ws[i].rows; row++) {
+            for (size_t column = 0; column < n.ws[i].columns; column++) {
+                MATRIX_AT(n.ws[i], row, column) -= (rate*MATRIX_AT(g.ws[i], row, column))/batch_size;
             }
+        }
 
-            for (size_t size = 0; size < n.bs[i].size; size++) {
-                ROW_AT(n.bs[i], size) -= (rate*ROW_AT(g.bs[i], size))/batch_size;
-            }
+        for (size_t size = 0; size < n.bs[i].size; size++) {
+            ROW_AT(n.bs[i], size) -= (rate*ROW_AT(g.bs[i], size))/batch_size;
         }
     }
 }
 
-void nn_sgd(NN n, NN *g, Matrix train, size_t epochs, size_t batch_size, float rate) {
+void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate) {
     TERAS_ASSERT(batch_size <= train.rows);
     for (size_t epoch = 0; epoch < epochs; epoch++) {
-        
-        if (batch_size < train.rows) {
-            matrix_shuffle_rows(train);
-        }
+        matrix_shuffle_rows(train);
 
         size_t batch_start = 0;
         while (batch_start < train.rows) {
-            size_t batch_end = min(batch_start + batch_size, train.rows - 1);
+            size_t batch_end = batch_start + batch_size;
 
-            TERAS_ASSERT(batch_start + batch_end - 1 <= batch_size);
+            TERAS_ASSERT(batch_end - batch_start <= batch_size);
 
-            for (size_t i = batch_start; i <= batch_end; i++) {
+            size_t i;
+            for (i = batch_start; i < batch_end && i < train.rows; i++) {
                 Row t = mat_row(train, i);
                 Row x = row_slice(t, 0, NN_INPUT(n).size); 
                 Row y = row_slice(t, NN_INPUT(n).size, NN_OUTPUT(n).size);
-                nn_backprop(n, g[i-batch_start], x, y);
+                nn_backprop(n, g, x, y);
             }
-            nn_learn(n, g, batch_end - batch_start + 1, rate);
+            nn_learn(n, g, i - batch_start, rate);
 
-            batch_start = batch_end + 1;
+            batch_start = batch_end;
         }
     }
 }
