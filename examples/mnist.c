@@ -33,7 +33,7 @@ void evaluate(NN n, Matrix test) {
         }
     }
 
-    printf("Accuracy - %zu / 10000\n", correct);
+    printf("Accuracy - %zu / %zu\n", correct, test.rows);
 }
 
 int main() {
@@ -66,13 +66,13 @@ int main() {
     }
 
     size_t layers[] = {784, 20, 10};
-    NN n = nn_alloc(layers, ARR_LEN(layers));
-    NN g = nn_alloc(layers, ARR_LEN(layers));
+    Act activations[] = {Sigmoid, Sigmoid};
+    NN n = nn_alloc(layers, activations, ARR_LEN(layers));
     nn_rand(n);
 
     float rate = 3;
     size_t batch_size = 10;
-    size_t epochs = 100;
+    size_t epochs = 200;
 
-    nn_sgd(n, g, train, epochs, batch_size, rate, test, &evaluate);
+    nn_sgd(n, train, epochs, batch_size, rate, test, &evaluate);
 }

@@ -14,10 +14,10 @@ size_t min(size_t a, size_t b) {
 // Normal distribution with mean 0 and variance 1
 // Todo: Make customizable
 float rand_float() {
-    float u1 = rand() / (RAND_MAX + 1.0f);
-    float u2 = rand() / (RAND_MAX + 1.0f);
+    float u1 = (float)rand() / ((float)RAND_MAX + 1.f);
+    float u2 = (float)rand() / ((float)RAND_MAX + 1.f);
 
-    float z0 = sqrtf(-2.0f * logf(u1)) * cosf(2.0f * M_PI * u2);
+    float z0 = sqrtf(-2.f * logf(u1)) * cosf(2.f * M_PI * u2);
 
     return z0;
 }
@@ -27,15 +27,15 @@ float sigmoidf(float x) {
 }
 
 float sigmoidf_prime(float x) {
-    return sigmoidf(x) * (1 - sigmoidf(x));
+    return sigmoidf(x) * (1.f - sigmoidf(x));
 }
 
 float relu(float x) {
-    return x > 0 ? x : 0;
+    return x > 0.f ? x : 0.f;
 }
 
 float relu_prime(float x) {
-    return x > 0 ? 1 : 0;
+    return x > 0.f ? 1.f : 0.f;
 }
 
 Matrix row_as_matrix(Row row) {
@@ -216,6 +216,22 @@ void matrix_sigmoid_prime(Matrix dest, Matrix m) {
     }
 }
 
+void matrix_relu(Matrix dest, Matrix m) {
+    for (size_t row = 0; row < m.rows; row++) {
+        for (size_t column = 0; column < m.columns; column++) {
+            MATRIX_AT(dest, row, column) = relu(MATRIX_AT(m, row, column));
+        }
+    }
+}
+
+void matrix_relu_prime(Matrix dest, Matrix m) {
+    for (size_t row = 0; row < m.rows; row++) {
+        for (size_t column = 0; column < m.columns; column++) {
+            MATRIX_AT(dest, row, column) = relu_prime(MATRIX_AT(m, row, column));
+        }
+    }
+}
+
 Row mat_row(Matrix m, size_t row) {
     TERAS_ASSERT(row < m.rows);
     return (Row) {
@@ -224,11 +240,40 @@ Row mat_row(Matrix m, size_t row) {
     };
 }
 
-NN nn_alloc(size_t *layers, size_t num_layers) {
+void matrix_act(Matrix dest, Matrix m, Act act) {
+    switch (act) {
+        case Sigmoid:
+            matrix_sigmoid(dest, m);
+            break;
+        case ReLu:
+            matrix_relu(dest, m);
+            break;
+        case LeakyReLu:
+            printf("LeakyReLu not implemented yet\n");
+            break;
+    }
+}
+
+void matrix_act_prime(Matrix dest, Matrix m, Act act) {
+    switch (act) {
+        case Sigmoid:
+            matrix_sigmoid_prime(dest, m);
+            break;
+        case ReLu:
+            matrix_relu_prime(dest, m);
+            break;
+        case LeakyReLu:
+            printf("LeakyReLu not implemented yet\n");
+            break;
+    }
+}
+
+NN nn_alloc(size_t *layers, Act *acts, size_t num_layers) {
     NN n;
 
     TERAS_ASSERT(num_layers > 0);
 
+    n.layers = layers;
     n.count = num_layers - 1;
     n.ws = TERAS_ALLOC(sizeof(*n.ws)*n.count);
     TERAS_ASSERT(n.ws != NULL);
@@ -238,6 +283,8 @@ NN nn_alloc(size_t *layers, size_t num_layers) {
     TERAS_ASSERT(n.zs != NULL);
     n.deltas = TERAS_ALLOC(sizeof(*n.deltas)*n.count);
     TERAS_ASSERT(n.deltas != NULL);
+    n.acts = TERAS_ALLOC(sizeof(*n.acts)*n.count);
+    TERAS_ASSERT(n.acts != NULL);
     n.as = TERAS_ALLOC(sizeof(*n.as)*(n.count+1));
     TERAS_ASSERT(n.as != NULL);
 
@@ -248,11 +295,30 @@ NN nn_alloc(size_t *layers, size_t num_layers) {
         n.bs[i] = row_alloc(layers[i+1]);
         n.zs[i] = row_alloc(layers[i+1]);
         n.deltas[i] = row_alloc(layers[i+1]);
+        n.acts[i] = acts[i];
         n.as[i+1] = row_alloc(layers[i+1]);
     }
 
+    nn_rand(n);
+
     return n;
 }
+
+void nn_free(NN n) {
+    TERAS_ASSERT(n.count >= 0);
+
+    row_free(n.as[0]);
+
+    for (size_t i = 0; i < n.count; i++) {
+        matrix_free(n.ws[i]);
+        row_free(n.bs[i]);
+        row_free(n.zs[i]);
+        row_free(n.deltas[i]);
+        row_free(n.as[i+1]);
+    }
+}
+
+
 
 void nn_print(NN n, char *name) {
     printf("------------------------------------\n");
@@ -288,13 +354,13 @@ void nn_forward(NN n) {
     for (int i = 0; i < n.count; i++) {
         matrix_dot(row_as_matrix(n.zs[i]), row_as_matrix(n.as[i]), n.ws[i], false);
         matrix_sum(row_as_matrix(n.zs[i]), row_as_matrix(n.zs[i]), row_as_matrix(n.bs[i]));
-        matrix_sigmoid(row_as_matrix(n.as[i+1]), row_as_matrix(n.zs[i]));
+        matrix_act(row_as_matrix(n.as[i+1]), row_as_matrix(n.zs[i]), n.acts[i]);
     }
 }
 
 float nn_cost(NN n, Matrix train) {
     TERAS_ASSERT(NN_INPUT(n).size + NN_OUTPUT(n).size == train.columns);
-    float sum = 0;
+    float sum = 0.f;
 
     for (size_t row = 0; row < train.rows; row++) {
         Row t = mat_row(train, row);
@@ -312,7 +378,7 @@ float nn_cost(NN n, Matrix train) {
 
 
     }
-    return sum/2;
+    return sum/2.f;
 }
 
 void nn_cost_derivative(Row dest, Row y, Row output_activations) {
@@ -325,8 +391,6 @@ void nn_cost_derivative(Row dest, Row y, Row output_activations) {
 }
 
 void nn_backprop(NN n, NN g, Row x, Row y) {
-    // Todo: Accumulate gradients instead of overwriting
-    // Use batch_size = 1 until then
     TERAS_ASSERT(x.size == NN_INPUT(n).size);
     TERAS_ASSERT(y.size == NN_OUTPUT(n).size);
 
@@ -336,7 +400,7 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
 
     Row delta = n.deltas[num_layers-1];
     nn_cost_derivative(g.zs[num_layers-1], y, NN_OUTPUT(n)); // temporary store
-    matrix_sigmoid_prime(row_as_matrix(delta), row_as_matrix(n.zs[num_layers-1]));
+    matrix_act_prime(row_as_matrix(delta), row_as_matrix(n.zs[num_layers-1]), n.acts[num_layers-1]);
     matrix_hadamard_product(row_as_matrix(delta), row_as_matrix(delta), row_as_matrix(g.zs[num_layers-1]));
 
     matrix_sum(row_as_matrix(g.bs[num_layers-1]), row_as_matrix(g.bs[num_layers-1]), row_as_matrix(delta));
@@ -344,7 +408,7 @@ void nn_backprop(NN n, NN g, Row x, Row y) {
 
     for (size_t l = num_layers-2; l != (size_t) -1; l--) {
         Row delta_l = n.deltas[l];
-        matrix_sigmoid_prime(row_as_matrix(g.zs[l]), row_as_matrix(n.zs[l])); // temporary store
+        matrix_act_prime(row_as_matrix(g.zs[l]), row_as_matrix(n.zs[l]), n.acts[l]); // temporary store
 
         matrix_dot_b_transpose(row_as_matrix(delta_l), row_as_matrix(delta), n.ws[l+1], false);
         matrix_hadamard_product(row_as_matrix(delta_l), row_as_matrix(delta_l), row_as_matrix(g.zs[l]));
@@ -373,7 +437,12 @@ void nn_learn(NN n, NN g, size_t batch_size, float rate) {
     }
 }
 
-void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate, Matrix test, void (*evaluation_function) (NN, Matrix)) {
+void nn_sgd(NN n, Matrix train, size_t epochs, size_t batch_size, float rate, Matrix test, void (*evaluation_function) (NN, Matrix)) {
+    NN g = nn_alloc(n.layers, n.acts, n.count+1);
+
+    printf("----------------- Pre-Training | Cost - %f -----------------\n", nn_cost(n, test));
+    evaluation_function(n, test);
+
     TERAS_ASSERT(batch_size <= train.rows);
     for (size_t epoch = 0; epoch < epochs; epoch++) {
         matrix_shuffle_rows(train);
@@ -384,7 +453,7 @@ void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float ra
 
             TERAS_ASSERT(batch_end - batch_start <= batch_size);
 
-            nn_fill(g, 0);
+            nn_fill(g, 0.f);
             size_t i;
             for (i = batch_start; i < batch_end && i < train.rows; i++) {
                 Row t = mat_row(train, i);
@@ -397,7 +466,8 @@ void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float ra
             batch_start = batch_end;
         }
 
-        printf("----------------- Epoch - %zu Cost - %f -----------------\n", epoch, nn_cost(n, test));
+        printf("----------------- Epoch - %zu | Cost - %f -----------------\n", epoch+1, nn_cost(n, test));
         evaluation_function(n, test);
     }
+    nn_free(g);
 }

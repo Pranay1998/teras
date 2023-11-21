@@ -22,6 +22,7 @@ typedef struct {
 } Row;
 
 #define row_alloc(size) mat_row(matrix_alloc(1, size), 0)
+#define row_free(r) matrix_free(row_as_matrix(r))
 #define row_clone(r) mat_row(matrix_alloc(1, (r).size), 0)
 #define row_rand(r) matrix_rand(row_as_matrix(r))
 #define row_copy(dest, src) matrix_copy(row_as_matrix(dest), row_as_matrix(src))
@@ -36,13 +37,21 @@ typedef struct {
 #define MATRIX_PRINT(m) matrix_print(m, #m) 
 #define MATRIX_AT(m, row, column) m.data[(row)*m.columns+(column)]
 
+typedef enum {
+    Sigmoid,
+    ReLu,
+    LeakyReLu
+} Act;
+
 typedef struct {
-    size_t count;
+    size_t *layers; // architecture of neural network
+    size_t count; // num_layers - 1
     Row *zs; // intermediate values
     Row *as; // activation values
     Matrix *ws; // weights
     Row *bs; // biases
     Row *deltas; // errors
+    Act *acts; // Activation functions
 } NN;
 
 #define NN_INPUT(n) (TERAS_ASSERT((n).count > 0), (n).as[0])
@@ -68,7 +77,7 @@ void matrix_sigmoid(Matrix dest, Matrix m);
 void matrix_sigmoid_prime(Matrix dest, Matrix m);
 Row mat_row(Matrix m, size_t row);
 
-NN nn_alloc(size_t *layers, size_t num_layers);
+NN nn_alloc(size_t *layers, Act *acts, size_t num_layers);
 void nn_print(NN n, char *name);
 void nn_rand(NN n);
 void nn_fill(NN m, float value);
@@ -77,6 +86,6 @@ float nn_cost(NN n, Matrix train);
 void nn_cost_derivative(Row dest, Row y, Row output_activations);
 void nn_backprop(NN n, NN g, Row x, Row y);
 void nn_learn(NN n, NN g, size_t batch_size, float rate);
-void nn_sgd(NN n, NN g, Matrix train, size_t epochs, size_t batch_size, float rate, Matrix test, void (*evaluation_function) (NN, Matrix));
+void nn_sgd(NN n, Matrix train, size_t epochs, size_t batch_size, float rate, Matrix test, void (*evaluation_function) (NN, Matrix));
 
 #endif
